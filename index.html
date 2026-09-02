@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1020" />
+    <title>SECOND MOTIVE</title>
+  </head>
+  <body>
+    <main id="app">
+      <section class="shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">v0.1.6 vertical slice</p>
+            <h1>SECOND MOTIVE</h1>
+            <p class="tagline">Save the CORE. Hide the reason behind your move.</p>
+          </div>
+          <div id="status" class="status" aria-live="polite"></div>
+        </header>
+
+        <div class="layout">
+          <section class="board-card" aria-label="Game board">
+            <div id="game"></div>
+            <div id="legend" class="legend"></div>
+          </section>
+
+          <aside class="hud">
+            <section class="panel">
+              <p class="panel-label">Your secret mission</p>
+              <h2 id="objective-name">—</h2>
+              <p id="objective-text" class="muted">Starting game…</p>
+              <div id="objective-progress" class="progress-row"></div>
+            </section>
+
+            <section class="panel">
+              <p class="panel-label">Action</p>
+              <div id="selection" class="selection">Select one of your units.</div>
+              <div class="action-grid">
+                <button id="move-btn" type="button">MOVE <span>1 AP</span></button>
+                <button id="strike-btn" type="button">STRIKE <span>2 AP</span></button>
+                <button id="nudge-btn" type="button">NUDGE <span>1 AP</span></button>
+                <button id="end-btn" type="button" class="secondary">END TURN</button>
+              </div>
+              <div id="nudge-directions" class="nudge-directions" hidden></div>
+            </section>
+
+            <section class="panel compact">
+              <p class="panel-label">Public record</p>
+              <div id="public-record" class="record"></div>
+            </section>
+
+            <section class="panel compact">
+              <p class="panel-label">Event log</p>
+              <ol id="log" class="log" aria-live="polite"></ol>
+            </section>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="guess-dialog">
+      <form method="dialog" id="guess-form">
+        <p class="eyebrow" id="guess-eyebrow">MID SUSPICION</p>
+        <h2 id="guess-title">What is the AI really doing?</h2>
+        <p class="muted" id="guess-help">Lock one guess. It cannot be changed.</p>
+        <div id="guess-options" class="guess-options"></div>
+        <menu>
+          <button id="guess-submit" value="default" type="submit">LOCK GUESS</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="result-dialog">
+      <section class="result-panel">
+        <p class="eyebrow">REVEAL</p>
+        <h2 id="result-title">Result</h2>
+        <div id="result-body"></div>
+        <form method="dialog">
+          <button id="restart-btn" value="default" type="submit">PLAY AGAIN</button>
+        </form>
+      </section>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
