@@ -3,6 +3,7 @@ export type Objective = 'HUNTER' | 'SHEPHERD' | 'PILGRIM' | 'SENTINEL' | 'INFILT
 export type Phase = 'playing' | 'mid_guess' | 'final_guess' | 'game_over';
 export type Direction = 'up' | 'right' | 'down' | 'left';
 export type Winner = Side | 'draw' | 'shared_loss' | null;
+export type GameMode = 'grant_demo' | 'random';
 
 export interface Pos {
   x: number;
@@ -38,7 +39,23 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+export interface RevealEvidence {
+  round: number;
+  kind: 'bait_position' | 'bait_push';
+  title: string;
+  publicRead: string;
+  secondMotive: string;
+  pos?: Pos;
+}
+
+export interface ShadeForecast {
+  id: number;
+  from: Pos;
+  to: Pos;
+}
+
 export interface GameState {
+  mode: GameMode;
   round: number;
   phase: Phase;
   activeSide: Side | null;
@@ -55,6 +72,10 @@ export interface GameState {
   scores: Record<Side, ScoreBreakdown>;
   winner: Winner;
   log: string[];
+}
+
+export interface GameOptions {
+  mode?: GameMode;
 }
 
 export const BOARD_SIZE = 5;
@@ -77,6 +98,15 @@ export const OBJECTIVE_TEXT: Record<Objective, string> = {
   SENTINEL: 'End turns on 3 different spaces adjacent to the CORE.',
   INFILTRATOR: 'End turns on 3 different spaces in enemy territory.',
   BAIT: 'Block a SHADE route from 3 different CORE-adjacent spaces, and get PUSHed there at least once.',
+};
+
+export const OBJECTIVE_SHORT_TEXT: Record<Objective, string> = {
+  HUNTER: 'Defeat 5 SHADEs',
+  SHEPHERD: 'NUDGE 4 times',
+  PILGRIM: 'Visit 3 different RUNEs',
+  SENTINEL: 'End near the CORE from 3 positions',
+  INFILTRATOR: 'End in enemy territory from 3 positions',
+  BAIT: 'Block 3 SHADE routes and get PUSHed',
 };
 
 const SPAWNS_PER_ROUND = [1, 1, 2, 1, 2, 1, 2, 1];
@@ -121,10 +151,13 @@ export class GameEngine {
   private nextShadeId = 1;
   private spawnCursor = 0;
   private readonly portalOffset: number;
+  private readonly mode: GameMode;
+  private revealEvidence: RevealEvidence[] = [];
   state: GameState;
 
-  constructor() {
-    this.portalOffset = Math.floor(Math.random() * PORTALS.length);
+  constructor(options: GameOptions = {}) {
+    this.mode = options.mode ?? 'random';
+    this.portalOffset = this.mode === 'grant_demo' ? 2 : Math.floor(Math.random() * PORTALS.length);
     this.state = this.createInitialState();
   }
 
@@ -133,9 +166,19 @@ export class GameEngine {
     this.turnIndex = 0;
     this.nextShadeId = 1;
     this.spawnCursor = 0;
-    const shuffled = [...OBJECTIVES].sort(() => Math.random() - 0.5);
-    const humanObjective = shuffled[0];
-    const aiObjective = shuffled[1];
+    this.revealEvidence = [];
+
+    let humanObjective: Objective;
+    let aiObjective: Objective;
+    if (this.mode === 'grant_demo') {
+      humanObjective = 'HUNTER';
+      aiObjective = 'BAIT';
+    } else {
+      const shuffled = [...OBJECTIVES].sort(() => Math.random() - 0.5);
+      humanObjective = shuffled[0];
+      aiObjective = shuffled[1];
+    }
+
     const units: Unit[] = [
       { id: 'H1', side: 'human', pos: copyPos(HUMAN_STARTS[0]) },
       { id: 'H2', side: 'human', pos: copyPos(HUMAN_STARTS[1]) },
@@ -147,6 +190,7 @@ export class GameEngine {
       { id: this.nextShadeId++, pos: { x: 4, y: 4 } },
     ];
     return {
+      mode: this.mode,
       round: 1,
       phase: 'playing',
       activeSide: 'human',
@@ -162,7 +206,7 @@ export class GameEngine {
       aiFinalGuess: null,
       scores: emptyScores(),
       winner: null,
-      log: ['Round 1. HUMAN acts first.'],
+      log: [this.mode === 'grant_demo' ? 'Grant Demo. Round 1. HUMAN acts first.' : 'Round 1. HUMAN acts first.'],
     };
   }
 
@@ -178,12 +222,18 @@ export class GameEngine {
     return this.state.shades.filter((shade) => same(shade.pos, pos));
   }
 
+  shadeForecast(): ShadeForecast[] {
+    return this.state.shades.map((shade) => ({ id: shade.id, from: copyPos(shade.pos), to: this.shadeNextStep(shade.pos) }));
+  }
+
+  getRevealEvidence(): RevealEvidence[] {
+    return this.revealEvidence.map((item) => ({ ...item, pos: item.pos ? copyPos(item.pos) : undefined }));
+  }
+
   legalMoveTargets(unitId: string): Pos[] {
     const unit = this.getUnit(unitId);
     if (!unit || this.state.phase !== 'playing' || unit.side !== this.state.activeSide || this.state.ap < 1) return [];
-    return Object.values(DIRS)
-      .map((d) => add(unit.pos, d))
-      .filter((pos) => this.canEnterPlayerCell(pos));
+    return Object.values(DIRS).map((d) => add(unit.pos, d)).filter((pos) => this.canEnterPlayerCell(pos));
   }
 
   move(unitId: string, target: Pos): boolean {
@@ -257,6 +307,12 @@ export class GameEngine {
     }
   }
 
+  runAiStep(): boolean {
+    if (this.state.phase !== 'playing' || this.state.activeSide !== 'ai' || this.state.ap <= 0) return false;
+    if (!this.takeAiAction()) this.endTurn();
+    return this.state.phase === 'playing' && this.state.activeSide === 'ai';
+  }
+
   runAiTurn(): void {
     let guard = 0;
     while (this.state.phase === 'playing' && this.state.activeSide === 'ai' && this.state.ap > 0 && guard++ < 6) {
@@ -290,12 +346,7 @@ export class GameEngine {
   }
 
   publicRecord(): string[] {
-    return [
-      `HUMAN kills ${this.metrics.kills.human}`,
-      `AI kills ${this.metrics.kills.ai}`,
-      `HUMAN nudges ${this.metrics.nudges.human}`,
-      `AI nudges ${this.metrics.nudges.ai}`,
-    ];
+    return [`HUMAN kills ${this.metrics.kills.human}`, `AI kills ${this.metrics.kills.ai}`, `HUMAN nudges ${this.metrics.nudges.human}`, `AI nudges ${this.metrics.nudges.ai}`];
   }
 
   private spendAp(cost: number): void {
@@ -356,7 +407,20 @@ export class GameEngine {
       if (isCoreAdjacent(unit.pos)) {
         this.metrics.coreAdjacentVisited[side].add(key(unit.pos));
         if (this.state.shades.some((shade) => this.shadePathIncludes(shade.pos, unit.pos))) {
-          this.metrics.baitBlocks[side].add(key(unit.pos));
+          const positionKey = key(unit.pos);
+          const isNewBaitPosition = !this.metrics.baitBlocks[side].has(positionKey);
+          this.metrics.baitBlocks[side].add(positionKey);
+          if (side === 'ai' && this.state.aiObjective === 'BAIT' && isNewBaitPosition) {
+            const count = this.metrics.baitBlocks.ai.size;
+            this.revealEvidence.push({
+              round: this.state.round,
+              kind: 'bait_position',
+              title: `Round ${this.state.round} · ${this.label(unit.pos)}`,
+              publicRead: 'It could be read as ordinary CORE defense.',
+              secondMotive: `It was also BAIT position #${count}.`,
+              pos: copyPos(unit.pos),
+            });
+          }
         }
       }
       if (isEnemyTerritory(side, unit.pos)) this.metrics.enemyTerritoryVisited[side].add(key(unit.pos));
@@ -390,7 +454,20 @@ export class GameEngine {
         const wasCoreAdjacent = isCoreAdjacent(unit.pos);
         const original = copyPos(unit.pos);
         this.pushUnit(unit);
-        if (wasCoreAdjacent) this.metrics.baitPushed[unit.side] = true;
+        if (wasCoreAdjacent) {
+          const firstBaitPush = !this.metrics.baitPushed[unit.side];
+          this.metrics.baitPushed[unit.side] = true;
+          if (unit.side === 'ai' && this.state.aiObjective === 'BAIT' && firstBaitPush) {
+            this.revealEvidence.push({
+              round: this.state.round,
+              kind: 'bait_push',
+              title: `Round ${this.state.round} · PUSH at ${this.label(original)}`,
+              publicRead: 'It looked like the AI had accepted a risky defensive position.',
+              secondMotive: 'The PUSH was also a required part of BAIT.',
+              pos: original,
+            });
+          }
+        }
         shade.pos = original;
         this.pushLog(`SHADE #${shade.id} PUSHed ${unit.id}.`);
       } else {
@@ -441,18 +518,11 @@ export class GameEngine {
   }
 
   private canEnterPlayerCell(pos: Pos): boolean {
-    return inBounds(pos)
-      && !same(pos, CORE)
-      && !isPortal(pos)
-      && !this.state.units.some((u) => same(u.pos, pos))
-      && this.shadesAt(pos).length === 0;
+    return inBounds(pos) && !same(pos, CORE) && !isPortal(pos) && !this.state.units.some((u) => same(u.pos, pos)) && this.shadesAt(pos).length === 0;
   }
 
   private canNudgeTo(pos: Pos): boolean {
-    return inBounds(pos)
-      && !same(pos, CORE)
-      && !isPortal(pos)
-      && !this.state.units.some((u) => same(u.pos, pos));
+    return inBounds(pos) && !same(pos, CORE) && !isPortal(pos) && !this.state.units.some((u) => same(u.pos, pos));
   }
 
   private adjacent(pos: Pos): Pos[] {
@@ -462,29 +532,23 @@ export class GameEngine {
   private takeAiAction(): boolean {
     const units = this.state.units.filter((u) => u.side === 'ai');
     const objective = this.state.aiObjective;
-
     if (this.state.ap >= 2) {
       const emergencyStrike = units.flatMap((unit) => this.legalStrikeCells(unit.id).map((pos) => ({ unit, pos })))
         .find(({ pos }) => this.shadesAt(pos).some((shade) => same(this.shadeNextStep(shade.pos), CORE)));
       if (emergencyStrike) return this.strike(emergencyStrike.unit.id, emergencyStrike.pos);
     }
-
     if (objective === 'HUNTER' && this.state.ap >= 2) {
       const strike = units.flatMap((unit) => this.legalStrikeCells(unit.id).map((pos) => ({ unit, pos })))[0];
       if (strike) return this.strike(strike.unit.id, strike.pos);
     }
-
     if (objective === 'SHEPHERD') {
       const nudge = this.bestAiNudge();
       if (nudge) return this.nudge(nudge.unit.id, nudge.shadePos, nudge.direction);
     }
-
     const move = this.bestAiMove(objective);
     if (move) return this.move(move.unit.id, move.target);
-
     const defensiveNudge = this.bestAiNudge();
     if (defensiveNudge) return this.nudge(defensiveNudge.unit.id, defensiveNudge.shadePos, defensiveNudge.direction);
-
     if (this.state.ap >= 2) {
       const strike = units.flatMap((unit) => this.legalStrikeCells(unit.id).map((pos) => ({ unit, pos })))[0];
       if (strike) return this.strike(strike.unit.id, strike.pos);
@@ -521,7 +585,8 @@ export class GameEngine {
           : objective === 'BAIT' ? (baitCells.length ? baitCells : unvisitedCore)
           : this.state.shades.map((shade) => shade.pos);
         if (targetSet.length > 0) score -= Math.min(...targetSet.map((p) => distance(target, p))) * 4;
-        if (isCoreAdjacent(target)) score += 1;
+        if (isCoreAdjacent(target)) score += objective === 'BAIT' ? 3 : 1;
+        if (objective === 'BAIT' && this.state.shades.some((shade) => this.shadePathIncludes(shade.pos, target))) score += 6;
         if (this.state.shades.some((shade) => distance(target, shade.pos) === 1)) score += objective === 'HUNTER' || objective === 'SHEPHERD' ? 3 : 1;
         if (!best || score > best.score) best = { unit, target, score };
       }
@@ -539,8 +604,7 @@ export class GameEngine {
       INFILTRATOR: this.metrics.enemyTerritoryVisited[side].size / 3,
       BAIT: this.metrics.baitBlocks[side].size / 3 + (this.metrics.baitPushed[side] ? 0.55 : 0),
     };
-    return OBJECTIVES.filter((objective) => objective !== excluded)
-      .sort((a, b) => scores[b] - scores[a])[0];
+    return OBJECTIVES.filter((objective) => objective !== excluded).sort((a, b) => scores[b] - scores[a])[0];
   }
 
   private finalizeGame(): void {
@@ -576,7 +640,7 @@ export class GameEngine {
 
   private pushLog(message: string): void {
     this.state.log.unshift(message);
-    this.state.log = this.state.log.slice(0, 28);
+    this.state.log = this.state.log.slice(0, 36);
   }
 
   private label(pos: Pos): string {

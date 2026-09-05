@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0b1020" />
-    <title>SECOND MOTIVE</title>
+    <title>SECOND MOTIVE — Grant Demo</title>
   </head>
   <body>
     <main id="app">
       <section class="shell">
         <header class="topbar">
           <div>
-            <p class="eyebrow">v0.1.6 vertical slice</p>
+            <p class="eyebrow">v0.1.7 · Grant Demo Patch</p>
             <h1>SECOND MOTIVE</h1>
             <p class="tagline">Save the CORE. Hide the reason behind your move.</p>
           </div>
@@ -21,15 +21,21 @@
         <div class="layout">
           <section class="board-card" aria-label="Game board">
             <div id="game"></div>
+            <div id="notice" class="notice" aria-live="polite"></div>
             <div id="legend" class="legend"></div>
           </section>
 
           <aside class="hud">
-            <section class="panel">
-              <p class="panel-label">Your secret mission</p>
+            <section class="panel secret-panel">
+              <p class="panel-label">Your second motive</p>
               <h2 id="objective-name">—</h2>
               <p id="objective-text" class="muted">Starting game…</p>
               <div id="objective-progress" class="progress-row"></div>
+              <div class="ai-secret">
+                <span>AI SECOND MOTIVE</span>
+                <strong>????????</strong>
+              </div>
+              <button id="motives-btn" type="button" class="text-button">VIEW ALL POSSIBLE MOTIVES</button>
             </section>
 
             <section class="panel">
@@ -58,26 +64,49 @@
       </section>
     </main>
 
+    <dialog id="intro-dialog" class="intro-dialog">
+      <section class="intro-panel">
+        <p class="eyebrow" id="intro-kicker">SHARED PROBLEM</p>
+        <h2 id="intro-title">Keep the CORE alive.</h2>
+        <p id="intro-copy" class="muted"></p>
+        <div id="intro-visual" class="intro-visual"></div>
+        <button id="intro-next" type="button">NEXT</button>
+      </section>
+    </dialog>
+
+    <dialog id="motives-dialog">
+      <section>
+        <p class="eyebrow">POSSIBLE SECOND MOTIVES</p>
+        <h2>Every action may be evidence.</h2>
+        <p class="muted">You know the six possible motives. You do not know which one the AI received.</p>
+        <div id="motives-list" class="motives-list"></div>
+        <div class="dialog-actions">
+          <button id="motives-close" type="button">BACK TO BOARD</button>
+        </div>
+      </section>
+    </dialog>
+
     <dialog id="guess-dialog">
       <form method="dialog" id="guess-form">
         <p class="eyebrow" id="guess-eyebrow">MID SUSPICION</p>
         <h2 id="guess-title">What is the AI really doing?</h2>
-        <p class="muted" id="guess-help">Lock one guess. It cannot be changed.</p>
+        <p class="muted" id="guess-help">Lock one theory.</p>
         <div id="guess-options" class="guess-options"></div>
         <menu>
-          <button id="guess-submit" value="default" type="submit">LOCK GUESS</button>
+          <button id="guess-submit" value="default" type="submit">LOCK READ</button>
         </menu>
       </form>
     </dialog>
 
-    <dialog id="result-dialog">
+    <dialog id="result-dialog" class="result-dialog">
       <section class="result-panel">
-        <p class="eyebrow">REVEAL</p>
+        <p class="eyebrow" id="result-eyebrow">REVEAL</p>
         <h2 id="result-title">Result</h2>
         <div id="result-body"></div>
-        <form method="dialog">
-          <button id="restart-btn" value="default" type="submit">PLAY AGAIN</button>
-        </form>
+        <div class="result-actions">
+          <button id="replay-demo-btn" type="button" class="secondary-button">REPLAY GRANT DEMO</button>
+          <button id="restart-btn" type="button">PLAY ANOTHER MOTIVE</button>
+        </div>
       </section>
     </dialog>
 

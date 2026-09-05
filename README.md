@@ -10,7 +10,9 @@ The catch: each player also has a hidden mission. The strongest moves are the on
 
 ## Playable prototype
 
-The browser vertical slice implements rules **v0.1.6**:
+The browser vertical slice implements rules **v0.1.6** with the **v0.1.7 Grant Demo presentation patch**.
+
+Core rules:
 
 - 5×5 tactical board
 - 2 player units per side
@@ -23,6 +25,20 @@ The browser vertical slice implements rules **v0.1.6**:
 - Round 8 FINAL READ
 - scoring: MISSION 4 / VEIL 4 / MID 1 / FINAL 2
 - opponent AI that pursues its own hidden objective while reacting to CORE danger
+
+Grant Demo additions:
+
+- first match fixes HUMAN = HUNTER and AI = BAIT
+- deterministic portal offset for a repeatable opening
+- three-step first-play briefing
+- visible SHADE next-step forecasts
+- AI actions shown one step at a time
+- all six motive candidates available from the HUD
+- FINAL READ remembers the player's MID theory
+- REVEAL surfaces actual BAIT positions and PUSH evidence recorded during play
+- `PLAY ANOTHER MOTIVE` switches to the normal random-objective game
+
+The demo is designed around one specific success signal: after REVEAL, an earlier AI move should become newly legible.
 
 ## Run locally
 
@@ -41,10 +57,11 @@ npm run build
 
 The prototype uses **Phaser + TypeScript + Vite**.
 
-- `src/game.ts` — deterministic game rules, secret objectives, scoring, and opponent AI
-- `src/scene.ts` — Phaser board renderer and click surface
-- `src/main.ts` — DOM HUD, player input, deduction dialogs, and game flow
+- `src/game.ts` — deterministic game rules, secret objectives, scoring, opponent AI, Grant Demo mode, reveal evidence
+- `src/scene.ts` — Phaser board renderer, SHADE forecasts, evidence-cell highlighting
+- `src/main.ts` — DOM HUD, onboarding, player input, deduction dialogs, AI pacing, reveal flow
 - `docs/rules-v0.1.6.md` — locked prototype rules
 - `docs/playtest.md` — human playtest protocol and watch list
+- `docs/grant-demo-v0.1.7.md` — Grant Demo scope and thesis
 
-Gameplay state is kept outside the Phaser scene so rendering and presentation can evolve without becoming the rules source of truth.
+Gameplay state remains outside the Phaser scene so rendering and presentation can evolve without becoming the rules source of truth.
