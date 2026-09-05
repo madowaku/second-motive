@@ -157,7 +157,7 @@ export class GameEngine {
 
   constructor(options: GameOptions = {}) {
     this.mode = options.mode ?? 'random';
-    this.portalOffset = this.mode === 'grant_demo' ? 0 : Math.floor(Math.random() * PORTALS.length);
+    this.portalOffset = this.mode === 'grant_demo' ? 2 : Math.floor(Math.random() * PORTALS.length);
     this.state = this.createInitialState();
   }
 
